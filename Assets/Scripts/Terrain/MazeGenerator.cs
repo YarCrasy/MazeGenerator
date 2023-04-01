@@ -6,8 +6,7 @@ using UnityEditor.AI;
 
 public class MazeGenerator : MonoBehaviour
 {
-    // Maze size is mesured as MAX_MAZE_SIZE * MAX_MAZE_SIZE
-    // MODULE_SIZE 
+    // Maze size is mesured as MAX_MAZE_SIZE * MAX_MAZE_SIZR
     public const int MAX_MAZE_SIZE = 25, MODULE_SIZE = 6;   
 
     [SerializeField] GameObject moduleObj;
