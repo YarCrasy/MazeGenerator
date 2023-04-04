@@ -10,6 +10,7 @@ public class MazeGenerator : MonoBehaviour
     public const int MAX_MAZE_SIZE = 25, MODULE_SIZE = 6;   
 
     [SerializeField] GameObject moduleObj;
+    GameObject MazeObject;
 
     // save refecences
     readonly GameObject[,] maze = new GameObject[MAX_MAZE_SIZE,MAX_MAZE_SIZE];
@@ -22,19 +23,20 @@ public class MazeGenerator : MonoBehaviour
     private void Awake()
     {
         GenerateModules();
-
         GeneratePath();
         MazeBake();
     }
 
     void GenerateModules()
     {
+        MazeObject = New GameObject("Maze");
         for (int x = 0; x < MAX_MAZE_SIZE; x++)
         {
             for (int z = 0; z < MAX_MAZE_SIZE; z++)
             {
-                Vector3 pos = new(x * MODULE_SIZE, 0,z * MODULE_SIZE);
+                Vector3 pos = new(x * MODULE_SIZE, 0, z * MODULE_SIZE);
                 maze[x, z] = Instantiate(moduleObj, pos, Quaternion.identity);
+                maze[x, z].transform.parent = mazeParent.transform;
                 modules[x, z] = maze[x, z].GetComponent<MazeModule>();
                 modules[x, z].posX = x;
                 modules[x, z].posZ = z;
