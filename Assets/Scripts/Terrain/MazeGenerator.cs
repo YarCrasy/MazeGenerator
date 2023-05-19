@@ -7,7 +7,7 @@ using UnityEditor.AI;
 public class MazeGenerator : MonoBehaviour
 {
     // Maze size is mesured as MAX_MAZE_SIZE * MAX_MAZE_SIZR
-    public const int MAX_MAZE_SIZE = 5, MODULE_SIZE = 6;   
+    public const int MAX_MAZE_SIZE = 25, MODULE_SIZE = 6, MAX_PATH_GEN_LOOP = 10000;   
 
     [SerializeField] GameObject moduleObj;
     GameObject mazeParent;
@@ -16,7 +16,7 @@ public class MazeGenerator : MonoBehaviour
     readonly GameObject[,] maze = new GameObject[MAX_MAZE_SIZE,MAX_MAZE_SIZE];
     readonly MazeModule[,] modules = new MazeModule[MAX_MAZE_SIZE,MAX_MAZE_SIZE];
 
-    int x, z;   //actual position   used z insted of y for better understanding in game space
+    int actualX, actualZ;   //used z insted of y for better understanding in game space
     readonly int[] auxX = { -1, 0, 1, 0 }, auxZ = { 0, -1, 0, 1 };  // used for the 4 respective direction
     readonly Stack<MazeModule> pathStack = new();
 
@@ -25,7 +25,6 @@ public class MazeGenerator : MonoBehaviour
         GenerateModules();
         GeneratePath();
 
-        
         MazeBake(); //IT ONLY CAN BAKE IN UNITY BUILD, IT THROW ERROR IF YOU TRY TO BUILD THE GAME
     }
 
@@ -49,35 +48,43 @@ public class MazeGenerator : MonoBehaviour
         }
     }
 
+    //Generate a path that able the player to move through all the maze
     void GeneratePath()
     {
         //Decide from where start the generation of the path
-        //Added the firt Module to the stack
-        x = Random.Range(0, MAX_MAZE_SIZE);
-        z = Random.Range(0, MAX_MAZE_SIZE); 
+        
+        actualX = Random.Range(0, MAX_MAZE_SIZE);
+        actualZ = Random.Range(0, MAX_MAZE_SIZE); 
         //Debug.Log(x + " " + z);
-        pathStack.Push(modules[x, z]);
+        pathStack.Push(modules[actualX, actualZ]);  //Added the firt Module to the stack
 
-        //
-        for (int limit = 0; limit < 10000 && !AllVisited(); limit++)
+        //dont end until all modules get visited
+        //for safety reason, limited loop times
+        for (int limit = 0; limit < MAX_PATH_GEN_LOOP && !AllVisited(); limit++)
         {
+            //takes the last module added to the stack and set it as visited
             MazeModule mod = pathStack.Peek();
-            x = mod.posX;
-            z = mod.posZ;
+            actualX = mod.posX;
+            actualZ = mod.posZ;
             mod.visited = true;
 
-            WallDirection dir = (WallDirection)Random.Range(0, 4);
-
-            //Debug.Log(dir + ", Next pos: " + (x + auxX[(int)dir]) + " " + (z + auxZ[(int)dir]));
-
-            if (PosInRange(x + auxX[(int)dir], z + auxZ[(int)dir]))
+            //check if the actual module have all surrounding modules visited
+            if (!AllDirVisited())
             {
-                MazeModule next = modules[x + auxX[(int)dir], z + auxZ[(int)dir]];
+                //if not, select randomly a direction
+                WallDirection dir = (WallDirection)Random.Range(0, 4);
+                //Debug.Log(dir + ", Next pos: " + (x + auxX[(int)dir]) + " " + (z + auxZ[(int)dir]));
 
-                if (!AllDirVisited())
+                //check if there is a module in the direction
+                if (PosInRange(actualX + auxX[(int)dir], actualZ + auxZ[(int)dir]))
                 {
+                    //if it is the case, get the reference
+                    MazeModule next = modules[actualX + auxX[(int)dir], actualZ + auxZ[(int)dir]];
+
+                    //and check is visited or not
                     if (!next.visited)
                     {
+                        //in each case, break the respective walls and add the next module to the stack, the next loop, next mod become actual mod
                         if (dir == WallDirection.left)
                         {
                             mod.DeactivateWall(dir);
@@ -98,24 +105,24 @@ public class MazeGenerator : MonoBehaviour
                             mod.DeactivateWall(dir);
                             next.DeactivateWall(WallDirection.back);
                         }
-                        next.visited = true;
                         pathStack.Push(next);
                     }
-                    //else
-                    //{
-                    //    Debug.Log("no move: DIR VISITED");
-                    //}
+                    else
+                    {
+                        //Debug.Log("no move: DIR VISITED");
+                    }
                 }
-                //else
-                //{
-                //    mod = pathStack.Pop();
-                //    Debug.Log("POPED TO " + mod.posX + " " + mod.posZ);
-                //}
+                else
+                {
+                    //Debug.Log("no move: DIR OUT OF BOUNDS");
+                }
             }
-            //else
-            //{
-            //    Debug.Log("no move: DIR OUT OF BOUNDS");
-            //}
+            else
+            {
+                mod = pathStack.Pop();  //delete de last added module
+                //Debug.Log("POPED TO " + mod.posX + " " + mod.posZ);
+            }
+
         }
     }
 
@@ -132,9 +139,9 @@ public class MazeGenerator : MonoBehaviour
         bool findNotVisited = true;
         for (int i = 0; i < auxX.Length && findNotVisited; i++)
         {
-            if (PosInRange(x + auxX[i], z + auxZ[i]))
+            if (PosInRange(actualX + auxX[i], actualZ + auxZ[i]))
             {
-                if (!modules[x + auxX[i], z + auxZ[i]].visited)
+                if (!modules[actualX + auxX[i], actualZ + auxZ[i]].visited)
                 {
                     findNotVisited = false;
                 }
