@@ -20,7 +20,7 @@ public class MazeGenerator : MonoBehaviour
     public GameObject[,] maze;
     public MazeModule[,] modules;
 
-    public int actualX, actualZ;   //used z insted of y for better understanding in game space
+    int actualX, actualZ;   //used z insted of y for better understanding in game space
     readonly int[] auxX = { -1, 0, 1, 0 }, auxZ = { 0, -1, 0, 1 };  // used for the 4 respective direction
     readonly Stack<MazeModule> pathStack = new();
 
@@ -203,20 +203,6 @@ public class MazeGenerator : MonoBehaviour
         if ((x >= 0 && x <= maxMazeSize - 1) && (z >= 0 && z <= maxMazeSize - 1)) return true;
         else return false;
     }
-
-    //the all modules out of the maze parent
-    void QuitParent()
-    {
-        plane.transform.parent = null;
-        for (int i = 0; i < maxMazeSize; i++)
-        {
-            for (int j = 0; j < maxMazeSize; j++)
-            {
-                maze[i, j].transform.parent = null;
-            }
-        }
-    }
-
 
     //get a random position in the maze's bounds
     public int MazeRandomWorldPosition()
