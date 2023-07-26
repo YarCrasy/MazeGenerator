@@ -6,37 +6,55 @@ using UnityEditor.AI;
 
 public class MazeGenerator : MonoBehaviour
 {
-    // Maze size is mesured as MAX_MAZE_SIZE * MAX_MAZE_SIZR
-    public const int MAX_MAZE_SIZE = 25, MODULE_SIZE = 6, MAX_PATH_GEN_LOOP = 10000;   
+    public static MazeGenerator instance; //there only can be one instance in the scene
 
-    [SerializeField] GameObject moduleObj;
-    GameObject mazeParent;
+    // Maze size is mesured as MAX_MAZE_SIZE * MAX_MAZE_SIZR
+    public const int MODULE_SIZE = 6, MAX_PATH_GEN_LOOP = 10000;
+    [Range(5, 20)] public int maxMazeSize;
+    [SerializeField] GameObject mazeParent;
+    [SerializeField] GameObject moduleObj; 
+    [SerializeField] GameObject plane;  //a gigant floor for all the maze
+    [SerializeField] MazeModule[] mazeAux;  //getting the maze reference from the scene
 
     // save refecences
-    readonly GameObject[,] maze = new GameObject[MAX_MAZE_SIZE,MAX_MAZE_SIZE];
-    readonly MazeModule[,] modules = new MazeModule[MAX_MAZE_SIZE,MAX_MAZE_SIZE];
+    public GameObject[,] maze;
+    public MazeModule[,] modules;
 
-    int actualX, actualZ;   //used z insted of y for better understanding in game space
+    public int actualX, actualZ;   //used z insted of y for better understanding in game space
     readonly int[] auxX = { -1, 0, 1, 0 }, auxZ = { 0, -1, 0, 1 };  // used for the 4 respective direction
     readonly Stack<MazeModule> pathStack = new();
 
     private void Awake()
     {
-        GenerateModules();
-        GeneratePath();
-
-        MazeBake(); //IT ONLY CAN BAKE IN UNITY BUILD, IT THROW ERROR IF YOU TRY TO BUILD THE GAME
+        instance = this;
+        maze = new GameObject[maxMazeSize, maxMazeSize];
+        modules = new MazeModule[maxMazeSize, maxMazeSize];
     }
 
+    private void Start()
+    {
+        if (mazeAux != null)
+        {
+            SetModules();
+        }
+        else
+        {
+            GenerateModules();
+        }
+        //QuitParent();
+        GeneratePath();
+    }
+
+    //generate a all modules needed
     void GenerateModules()
     {
         //creats a gameObject where can hide all the modules in inspector
         mazeParent = new GameObject("Maze");
 
         //Instantiate modules and each one saves their own position
-        for (int x = 0; x < MAX_MAZE_SIZE; x++)
+        for (int x = 0; x < maxMazeSize; x++)
         {
-            for (int z = 0; z < MAX_MAZE_SIZE; z++)
+            for (int z = 0; z < maxMazeSize; z++)
             {
                 Vector3 pos = new(x * MODULE_SIZE, 0, z * MODULE_SIZE); //this pos is for the game space, not for matrix pos
                 maze[x, z] = Instantiate(moduleObj, pos, Quaternion.identity);
@@ -48,13 +66,31 @@ public class MazeGenerator : MonoBehaviour
         }
     }
 
+    //Preparing all the modules in scene, destroy no needed, getting the needed
+    void SetModules()
+    {
+        for (int i = 0; i < mazeAux.Length; i++)
+        {
+            if (mazeAux[i].posX < maxMazeSize && mazeAux[i].posZ < maxMazeSize)
+            {
+                modules[mazeAux[i].posX, mazeAux[i].posZ] = mazeAux[i];
+                maze[mazeAux[i].posX, mazeAux[i].posZ] = modules[mazeAux[i].posX, mazeAux[i].posZ].gameObject;
+            }
+            else
+            {
+                Destroy(mazeAux[i].gameObject);
+            }
+        }
+        mazeAux = null;
+    }
+
     //Generate a path that able the player to move through all the maze
     void GeneratePath()
     {
         //Decide from where start the generation of the path
         
-        actualX = Random.Range(0, MAX_MAZE_SIZE);
-        actualZ = Random.Range(0, MAX_MAZE_SIZE); 
+        actualX = Random.Range(0, maxMazeSize);
+        actualZ = Random.Range(0, maxMazeSize); 
         //Debug.Log(x + " " + z);
         pathStack.Push(modules[actualX, actualZ]);  //Added the firt Module to the stack
 
@@ -85,25 +121,25 @@ public class MazeGenerator : MonoBehaviour
                     if (!next.visited)
                     {
                         //in each case, break the respective walls and add the next module to the stack, the next loop, next mod become actual mod
-                        if (dir == WallDirection.left)
+                        switch (dir)
                         {
-                            mod.DeactivateWall(dir);
-                            next.DeactivateWall(WallDirection.right);
-                        }
-                        else if (dir == WallDirection.back)
-                        {
-                            mod.DeactivateWall(dir);
-                            next.DeactivateWall(WallDirection.front);
-                        }
-                        else if (dir == WallDirection.right)
-                        {
-                            mod.DeactivateWall(dir);
-                            next.DeactivateWall(WallDirection.left);
-                        }
-                        else if (dir == WallDirection.front)
-                        {
-                            mod.DeactivateWall(dir);
-                            next.DeactivateWall(WallDirection.back);
+                            case WallDirection.left:
+                                //DeactivateWalls(mod, next, dir, WallDirection.right);
+                                DestroyWalls(mod, next, dir, WallDirection.right);
+                                break;
+                            case WallDirection.back:
+                                //DeactivateWalls(mod, next, dir, WallDirection.front);
+                                DestroyWalls(mod, next, dir, WallDirection.front);
+                                break;
+                            case WallDirection.right:
+                                //DeactivateWalls(mod, next, dir, WallDirection.left);
+                                DestroyWalls(mod, next, dir, WallDirection.left);
+                                break;
+                            case WallDirection.front:
+                                //DeactivateWalls(mod, next, dir, WallDirection.back);
+                                DestroyWalls(mod, next, dir, WallDirection.back);
+                                break;
+                            default: break;
                         }
                         pathStack.Push(next);
                     }
@@ -119,13 +155,24 @@ public class MazeGenerator : MonoBehaviour
             }
             else
             {
-                mod = pathStack.Pop();  //delete de last added module
+                pathStack.Pop();  //delete de last added module
                 //Debug.Log("POPED TO " + mod.posX + " " + mod.posZ);
             }
 
         }
     }
 
+    void DeactivateWalls(MazeModule actual, MazeModule next, WallDirection dir, WallDirection opposite)
+    {
+        actual.DeactivateWall(dir);
+        next.DeactivateWall(opposite);
+    }
+
+    void DestroyWalls(MazeModule actual, MazeModule next, WallDirection dir, WallDirection opposite)
+    {
+        actual.DestroyWall(dir);
+        next.DestroyWall(opposite);
+    }
     // if there is not object is the stack, it might be all visited
     bool AllVisited()
     {
@@ -153,18 +200,28 @@ public class MazeGenerator : MonoBehaviour
     //check if the position is in range [0, MAX MAZE SIZE]
     bool PosInRange(int x, int z)
     {
-        if ((x >= 0 && x <= MAX_MAZE_SIZE - 1) && (z >= 0 && z <= MAX_MAZE_SIZE - 1)) return true;
+        if ((x >= 0 && x <= maxMazeSize - 1) && (z >= 0 && z <= maxMazeSize - 1)) return true;
         else return false;
     }
 
-
-    //WORK IN PROGRESS
-    void MazeBake()
+    //the all modules out of the maze parent
+    void QuitParent()
     {
-        NavMeshBuilder.BuildNavMesh();
+        plane.transform.parent = null;
+        for (int i = 0; i < maxMazeSize; i++)
+        {
+            for (int j = 0; j < maxMazeSize; j++)
+            {
+                maze[i, j].transform.parent = null;
+            }
+        }
+    }
 
-        StaticOcclusionCulling.Compute();
-        StaticOcclusionCulling.RemoveCacheFolder();
+
+    //get a random position in the maze's bounds
+    public int MazeRandomWorldPosition()
+    {
+        return Random.Range(0, maxMazeSize - 1) * MODULE_SIZE;
     }
 
 }

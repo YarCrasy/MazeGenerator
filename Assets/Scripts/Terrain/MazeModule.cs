@@ -12,6 +12,13 @@ public class MazeModule : MonoBehaviour
 
     public bool visited = false;
 
+    private void Awake()
+    {
+        posX = (int)transform.position.x / MazeGenerator.MODULE_SIZE;
+        posZ = (int)transform.position.z / MazeGenerator.MODULE_SIZE;
+    }
+
+
     public void DeactivateWall(WallDirection dir)
     {
         walls[(int)dir].SetActive(false);
