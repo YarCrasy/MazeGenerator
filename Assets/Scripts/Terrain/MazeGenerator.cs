@@ -41,7 +41,7 @@ public class MazeGenerator : MonoBehaviour
         {
             GenerateModules();
         }
-        //QuitParent();
+        QuitParent();
         GeneratePath();
     }
 
@@ -202,6 +202,19 @@ public class MazeGenerator : MonoBehaviour
     {
         if ((x >= 0 && x <= maxMazeSize - 1) && (z >= 0 && z <= maxMazeSize - 1)) return true;
         else return false;
+    }
+
+    //quit modules from parent for optimization
+    void QuitParent()
+    {
+        plane.transform.parent = null;
+        for (int i = 0; i < maxMazeSize; i++)
+        {
+            for (int j = 0; j < maxMazeSize; j++)
+            {
+                maze[i, j].transform.parent = null;
+            }
+        }
     }
 
     //get a random position in the maze's bounds
